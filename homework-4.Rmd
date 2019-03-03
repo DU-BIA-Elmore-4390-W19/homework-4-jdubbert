@@ -9,12 +9,72 @@ output: github_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+```{r libs, message = F, warning = F, include = F}
+library(tidyverse)
+library(broom)
+library(glmnet)
+library(caret)
+library(ISLR)
+library(janitor)
+library(stringr)
+library(rpart)
+library(rpart.plot)
+library(partykit)
+library(randomForest)
+library(MASS)
+library(gbm)
+theme_set(theme_bw())
+```
+
 ## Problem 1
 
 Problem 7 from Chapter 8 in the text. To be specific, please use a sequence of
 `ntree` from 25 to 500 in steps of 25 and `mtry` from 3 to 9 for by 1. 
 
 ## Answer 1
+```{r}
+set.seed(1)
+df <- tbl_df(Boston)
+inTraining <- createDataPartition(df$medv, p = .75, list = F)
+training <- df[inTraining,]
+testing <- df[-inTraining,]
+```
+
+```{r}
+set.seed(1982)
+trees <- seq(25,500, by=25)
+mtry1 <- seq(3,9, by=1)
+rf_boston_cv <- train(medv ~ .,
+                      data = training,
+                      method = "rf",
+                      ntree = 500,
+                      importance=T,
+                      tuneGrid = data.frame(mtry = mtry1))
+rf_boston_cv
+```
+
+```{r}
+ntrees <- seq(25,500, by=25)
+mse_test <- rep(NA, length(ntrees))
+mtry1 <- seq(3,9, by=1)
+
+for (nti in 1:length(ntrees)) {
+  nt = ntrees[nti]
+  rf_boston_cv <- randomForest(medv ~ .,
+                      data = training,
+                      mtry = mtry1,
+                      ntree = nt,
+                      importance=T)
+  mse <- predict(rf_boston_cv, newdata = testing)
+  mse_test[nti] <- mean((testing$medv-mse)^2)
+}
+
+df_mse <- as.data.frame(mse_test)
+df_mse$trees <- seq(25,500, by=25)
+
+p <- ggplot(df_mse, aes(x=trees, y=mse_test))
+p + geom_point() + geom_line()
+```
 
 ## Problem 2
 
@@ -27,3 +87,34 @@ test MSE.
 2. Fit a multiple regression model to the training data and report the 
 estimated test MSE
 3. Summarize your results. 
+
+a.
+```{r}
+carseats <- Carseats
+set.seed(9823)
+inTraining <- createDataPartition(carseats$Sales, p = .5, list = F)
+training <- carseats[inTraining,]
+testing <- carseats[-inTraining,]
+```
+
+b.
+```{r}
+r_tree <- rpart(Sales~., data = training)
+r_tree
+prp(r_tree)
+plot(as.party(r_tree))
+```
+
+```{r}
+pred_test <- predict(r_tree, newdata = testing)
+mean((testing$Sales-pred_test)^2)
+```
+
+The test MSE is 4.48
+
+c.
+```{r}
+set.seed(9823)
+
+```
+
