@@ -115,6 +115,84 @@ The test MSE is 4.48
 c.
 ```{r}
 set.seed(9823)
+fit_control <- trainControl(method = "repeatedcv",
+                           number = 10, 
+                           repeats = 10)
 
+cv_boston_tree <- train(Sales ~.,
+                        data = training,
+                        method= "rpart2",
+                        trControl=fit_control,
+                        tuneGrid = data.frame(maxdepth= 1:10))
+cv_boston_tree
+plot(cv_boston_tree)
+```
+It looks like k=3 is the optimal level of tree complexity.
+
+```{r}
+test_preds_cv <- predict(cv_boston_tree, newdata = testing)
+mean((testing$Sales-test_preds_cv)^2)
+```
+Pruning the tree increases the MSE to 4.99.
+
+d.
+```{r}
+bag_carseats <- randomForest(Sales ~ ., data = training, mtry = 10, ntree=500,importance=TRUE)
+bag_carseats
+
+bag_predict <- predict(bag_carseats, newdata = testing)
+mean((testing$Sales - bag_predict)^2)
+```
+Test MSE is 3.00
+```{r}
+imp <- data.frame(importance(bag_carseats)[,-2])
+rn <- rownames(imp)
+imp_carseats <- data.frame(variable=rn,
+                           importance=imp$importance.bag_carseats.....2.) %>% arrange(desc(-importance)) %>% mutate(variable= factor(variable, variable))
+p <- ggplot(imp_carseats, aes(variable, importance))
+p+geom_col()+coord_flip()
+```
+Bagging improves the test MSE to 3 and ShelveLoc, Price and CompPrice are the most important predictors of Sale.
+
+e.
+```{r}
+rf_carseats <- randomForest(Sales ~., data = training, mtry=3, ntree=500, importance=T)
+rf_carseats
+rf_predict <- predict(rf_carseats, newdata = testing)
+mean((testing$Sales-rf_predict)^2)
+```
+The test MSE is 3.55
+
+```{r}
+rf_carseats_cv <- train(Sales ~ ., 
+                      data = training,
+                      method = "rf",
+                      ntree = 500,
+                      importance = T,
+                      tuneGrid = data.frame(mtry = 1:10))
+rf_carseats_cv
+plot(rf_carseats_cv)
+```
+```{r}
+rf_carseats7 <- randomForest(Sales ~., data = training, mtry=7, ntree=500, importance=T)
+rf_carseats7
+rf_predict7 <- predict(rf_carseats7, newdata = testing)
+mean((testing$Sales-rf_predict7)^2)
+```
+The test MSE picking the best mtry through CV is 3.05.
+```{r}
+importance(rf_carseats7)
+```
+The test MSE is worse in this case for the Random Forest model barely from 3 in the Bagging model to 3.06 in the RF. Chaning m varies the test MSE between 3 and 3.61.Again, the most important predictors for Sales are ShelveLoc, Price and CompPrice. 
+
+```{r}
+imp <- varImp(rf_carseats_cv)$importance
+rn <- rownames(imp)
+imp_rf <- data.frame(variable=rn,
+                     importance=imp$Overall) %>% 
+  arrange(desc(-importance)) %>% 
+  mutate(variable = factor(variable, variable))
+p<- ggplot(imp_rf, aes(variable, importance))
+p + geom_col()+coord_flip()
 ```
 
