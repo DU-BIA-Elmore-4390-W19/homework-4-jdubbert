@@ -1,6 +1,6 @@
 ---
 title: 'Homework 4: Bags, Forests, Boosts, oh my'
-author: "Your Name Goes Here"
+author: "Jacob Dubbert"
 date: "2/28/2019"
 output: github_document
 ---
@@ -23,6 +23,8 @@ library(partykit)
 library(randomForest)
 library(MASS)
 library(gbm)
+library(doMC) 
+library(reshape2)
 theme_set(theme_bw())
 ```
 
@@ -54,26 +56,34 @@ rf_boston_cv
 ```
 
 ```{r}
+registerDoMC(cores = 4)
+
+set.seed(1982)
 ntrees <- seq(25,500, by=25)
-mse_test <- rep(NA, length(ntrees))
+mse_test <- tibble(ntree = ntrees,
+                   mtry_3= 1:20,
+                   mtry_4= 1:20,
+                   mtry_5= 1:20,
+                   mtry_6=1:20,
+                   mtry_7=1:20,
+                   mtry_8=1:20,
+                   mtry_9=1:20)
 mtry1 <- seq(3,9, by=1)
 
+
 for (nti in 1:length(ntrees)) {
-  nt = ntrees[nti]
-  rf_boston_cv <- randomForest(medv ~ .,
+  rf_boston_cv2 <- train(medv ~ .,
                       data = training,
-                      mtry = mtry1,
-                      ntree = nt,
-                      importance=T)
-  mse <- predict(rf_boston_cv, newdata = testing)
-  mse_test[nti] <- mean((testing$medv-mse)^2)
+                      method = "rf",
+                      ntree = ntrees[nti],
+                      importance=T,
+                      tuneGrid = data.frame(mtry = 3:9))
+  mse_test[nti, 2:8] <- rf_boston_cv2$results$RMSE^2
 }
 
-df_mse <- as.data.frame(mse_test)
-df_mse$trees <- seq(25,500, by=25)
+mse_test <- melt(mse_test, id.vars="ntree")
+ggplot(mse_test, aes(ntree, value, col=variable)) + geom_line() + geom_point()
 
-p <- ggplot(df_mse, aes(x=trees, y=mse_test))
-p + geom_point() + geom_line()
 ```
 
 ## Problem 2
